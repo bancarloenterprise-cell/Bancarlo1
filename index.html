@@ -31,13 +31,35 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             margin-bottom: 15px;
         }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 25px 15px 10px 15px;
+        }
         .section-title {
             font-size: 13px;
             font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin: 25px 15px 10px 15px;
+            margin: 0;
+        }
+        .btn-reset-history {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn-reset-history:hover {
+            background: rgba(239, 68, 68, 0.1);
         }
         .carousel-container {
             display: flex;
@@ -66,7 +88,6 @@
         .bank-card.active { border-color: #e2cb99; transform: scale(1.02); }
         .card-top { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 13px; letter-spacing: 1px; }
         
-        /* Círculo con Flecha a la Derecha */
         .info-trigger-circle {
             width: 28px;
             height: 28px;
@@ -158,7 +179,9 @@
 
     <div class="top-bar">Bancarlo Cloud Móvil</div>
 
-    <div class="section-title">Tu Cuenta Bancaria Digital</div>
+    <div class="section-header">
+        <h2 class="section-title">Tu Cuenta Bancaria Digital</h2>
+    </div>
     <div class="form-container" style="margin-bottom: 20px;">
         <div class="form-group">
             <label for="my-email">Tu Correo Electrónico (Mi Cuenta)</label>
@@ -170,7 +193,9 @@
         <div id="live-alert-box" class="status-msg success" style="background-color: #3b82f6; color: white; margin-bottom: 10px; display: none;"></div>
     </div>
 
-    <div class="section-title">Mis Tarjetas Gold Cloud</div>
+    <div class="section-header">
+        <h2 class="section-title">Mis Tarjetas Gold Cloud</h2>
+    </div>
     <div class="carousel-container">
         <div id="card-debito" class="bank-card active" onclick="selectCard('debito')">
             <div class="card-top">
@@ -211,7 +236,9 @@
         <button class="btn-bank" style="background-color: #334155; color: white; padding: 10px; font-size: 13px;" onclick="openAdminModal()">⚙️ Administrar Fondos Tarjeta Seleccionada</button>
     </div>
 
-    <div class="section-title">Operación de Envío en Tiempo Real</div>
+    <div class="section-header">
+        <h2 class="section-title">Operación de Envío en Tiempo Real</h2>
+    </div>
     <div class="form-container">
         <form id="bank-transfer-form">
             <div class="form-group">
@@ -223,24 +250,58 @@
                 <input type="number" id="amount" class="form-input" min="1" placeholder="0.00" required>
             </div>
             <div class="form-group">
-                <label for="secure-password">Contraseña Bancaria</label>
-                <input type="password" id="secure-password" class="form-input" placeholder="Clave de seguridad" required>
+                <label for="secure-password">Contraseña Bancaria (NIP)</label>
+                <input type="password" id="secure-password" class="form-input" placeholder="Introduce tu clave transaccional" required>
             </div>
             <button type="submit" class="btn-bank" id="btn-submit">Confirmar Envío Seguro Cloud</button>
         </form>
         <div id="status-box" class="status-msg"></div>
     </div>
 
-    <div class="section-title">Historial de Envíos de la Sesión</div>
-    <div class="history-container" id="history-box">
-        <div style="text-align: center; color: #64748b; font-size: 13px; padding: 15px;">No se registran envíos en esta sesión.</div>
+    <div class="section-header">
+        <h2 class="section-title">Historial de Envíos Guardados</h2>
+        <button type="button" class="btn-reset-history" onclick="clearHistory()">Reiniciar Historial</button>
+    </div>
+    <div class="history-container" id="history-box"></div>
+
+    <!-- BOTÓN FINAL PARA CAMBIAR EL NIP -->
+    <div style="padding: 20px 15px 10px 15px;">
+        <button class="btn-bank" style="background-color: #1e293b; color: #10b981; border: 1px solid #10b981; padding: 12px; font-size: 13px;" onclick="openNipAuthModal()">🔒 Configuración de NIP Transaccional</button>
+    </div>
+
+    <!-- MODAL 1: AUTENTICACIÓN PARA ACCEDER AL CAMBIO DE NIP -->
+    <div id="nip-auth-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Acceso Protegido</div>
+            <div class="form-group">
+                <label>Contraseña Maestra Obligatoria</label>
+                <input type="password" id="nip-master-pass" class="form-input" placeholder="Introduce la contraseña maestra">
+            </div>
+            <button class="btn-bank" onclick="verifyMasterPassForNip()">Ingresar</button>
+            <button class="btn-modal btn-cancel" onclick="closeModal('nip-auth-modal')">Cancelar</button>
+            <div id="nip-auth-status" class="status-msg"></div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PANEL PARA CAMBIAR EL NIP -->
+    <div id="nip-change-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Cambiar NIP Transaccional</div>
+            <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: -5px; margin-bottom: 15px;">Este NIP protegerá únicamente tus envíos a amigos.</p>
+            <div class="form-group">
+                <label>Nuevo NIP de Seguridad</label>
+                <input type="password" id="new-nip-value" class="form-input" placeholder="Escribe tu nueva contraseña">
+            </div>
+            <button class="btn-bank" onclick="saveNewNip()">Guardar Nuevo NIP</button>
+            <button class="btn-modal btn-cancel" onclick="closeModal('nip-change-modal')">Cerrar</button>
+            <div id="nip-change-status" class="status-msg"></div>
+        </div>
     </div>
 
     <div id="card-info-modal" class="modal">
         <div class="modal-content">
             <div class="modal-title" id="info-modal-title">Información de Tarjeta</div>
-            <div id="info-modal-body" style="margin-bottom: 20px;">
-                </div>
+            <div id="info-modal-body" style="margin-bottom: 20px;"></div>
             <button class="btn-bank" id="btn-open-statement" style="font-size: 14px; padding: 12px;">Ver Estado de Cuenta</button>
             <button class="btn-modal btn-cancel" onclick="closeModal('card-info-modal')">Cerrar</button>
         </div>
@@ -249,12 +310,12 @@
     <div id="card-statement-modal" class="modal">
         <div class="modal-content">
             <div class="modal-title" id="statement-modal-title">Estado de Cuenta</div>
-            <div class="statement-box" id="statement-modal-body">
-                </div>
+            <div class="statement-box" id="statement-modal-body"></div>
             <button class="btn-modal btn-cancel" onclick="closeModal('card-statement-modal')" style="margin-top: 15px;">Regresar</button>
         </div>
     </div>
 
+    <!-- MODAL ADMINISTRATIVO DE FONDOS (TEXTOS MODIFICADOS) -->
     <div id="admin-modal" class="modal">
         <div class="modal-content">
             <div class="modal-title" id="modal-card-title">Gestionar Fondos</div>
@@ -263,8 +324,8 @@
                 <input type="number" id="modal-amount" class="form-input" placeholder="0.00">
             </div>
             <div class="form-group">
-                <label>Contraseña Administrador</label>
-                <input type="password" id="modal-password" class="form-input" placeholder="bancarlo052">
+                <label>Contraseña del Administrador</label>
+                <input type="password" id="modal-password" class="form-input" placeholder="Introduce tu contraseña">
             </div>
             <div class="modal-buttons">
                 <button class="btn-modal btn-add" onclick="modifyFunds('add')">Agregar</button>
@@ -276,10 +337,8 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE CORREO
         emailjs.init("Srl82h5JL4_eDWXqg");
 
-        // CONFIGURACIÓN DE TU BASE DE DATOS FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDNnq2YzWJLi_YfPNqgRY4oCMKOJQjrOGw",
             databaseURL: "https://bancarlo-23297-default-rtdb.firebaseio.com",
@@ -296,23 +355,55 @@
         let isInitialLoad = true;
         let currentRef = null; 
 
-        // Información estática para los círculos de información
         const cardDetailsData = {
-            debito: {
-                numero: "**** **** **** 4829",
-                vencimiento: "12/30",
-                cvv: "395",
-                tipo: "Cloud Débito Internacional",
-                titular: "Carlo Itzae"
-            },
-            credito: {
-                numero: "**** **** **** 8841",
-                vencimiento: "06/29",
-                cvv: "142",
-                tipo: "Cloud Crédito Gold Oro",
-                titular: "Carlo Itzae"
-            }
+            debito: { numero: "**** **** **** 4829", vencimiento: "12/30", cvv: "395", tipo: "Cloud Débito Internacional", titular: "Carlo Itzae" },
+            credito: { numero: "**** **** **** 8841", vencimiento: "06/29", cvv: "142", tipo: "Cloud Crédito Gold Oro", titular: "Carlo Itzae" }
         };
+
+        function getActiveNip() {
+            const savedNip = localStorage.getItem('bancarlo_user_nip');
+            return savedNip ? savedNip : 'bancarlo052'; 
+        }
+
+        function openNipAuthModal() {
+            document.getElementById('nip-master-pass').value = '';
+            document.getElementById('nip-auth-status').style.display = 'none';
+            document.getElementById('nip-auth-modal').style.display = 'flex';
+        }
+
+        function verifyMasterPassForNip() {
+            const masterPassInput = document.getElementById('nip-master-pass').value;
+            const statusBox = document.getElementById('nip-auth-status');
+
+            if (masterPassInput === 'bancarlo052') {
+                closeModal('nip-auth-modal');
+                document.getElementById('new-nip-value').value = getActiveNip();
+                document.getElementById('nip-change-status').style.display = 'none';
+                document.getElementById('nip-change-modal').style.display = 'flex';
+            } else {
+                statusBox.className = "status-msg error";
+                statusBox.innerText = "❌ Contraseña maestra incorrecta.";
+            }
+        }
+
+        function saveNewNip() {
+            const newNip = document.getElementById('new-nip-value').value.trim();
+            const statusBox = document.getElementById('nip-change-status');
+
+            if (!newNip) {
+                statusBox.className = "status-msg error";
+                statusBox.innerText = "❌ El NIP no puede estar vacío.";
+                return;
+            }
+
+            localStorage.setItem('bancarlo_user_nip', newNip);
+            statusBox.className = "status-msg success";
+            statusBox.innerText = "✅ NIP guardado y actualizado correctamente.";
+            
+            setTimeout(() => {
+                closeModal('nip-change-modal');
+            }, 1500);
+        }
 
         function cleanEmailKey(email) {
             return email.toLowerCase().replace(/\./g, '_');
@@ -324,7 +415,6 @@
             document.getElementById(`card-${type}`).classList.add('active');
         }
 
-        // Conexión en tiempo real instantánea al escribir/cambiar correo
         function connectToMyAccount() {
             myAccountEmail = document.getElementById('my-email').value.trim();
             if(!myAccountEmail || !myAccountEmail.includes('@')) return;
@@ -332,9 +422,7 @@
             const newCleanKey = cleanEmailKey(myAccountEmail);
             if (newCleanKey === myCleanKey) return;
 
-            if (currentRef) {
-                currentRef.off(); // Apagar escucha anterior
-            }
+            if (currentRef) currentRef.off();
 
             myCleanKey = newCleanKey;
             isInitialLoad = true; 
@@ -353,14 +441,12 @@
                         showLiveTransferAlert(transferReceived);
                     }
                 } else {
-                    // Crear cuenta por defecto si no existe
                     balances = { debito: 100.00, credito: 2000.00 };
                     database.ref('users/' + myCleanKey).set(balances);
                 }
 
                 isInitialLoad = false; 
 
-                // Actualizar de inmediato los textos de las tarjetas en la pantalla principal
                 document.getElementById('balance-debito').innerText = '$' + balances.debito.toLocaleString('es-MX', {minimumFractionDigits: 2});
                 document.getElementById('balance-credito').innerText = '$' + balances.credito.toLocaleString('es-MX', {minimumFractionDigits: 2});
             });
@@ -370,19 +456,71 @@
             const alertBox = document.getElementById('live-alert-box');
             alertBox.innerText = `📩 ¡Recibiste una transferencia en vivo de $${amount.toFixed(2)} MXN!`;
             alertBox.style.display = 'block';
-
-            setTimeout(() => {
-                alertBox.style.display = 'none';
-            }, 7000);
+            setTimeout(() => { alertBox.style.display = 'none'; }, 7000);
         }
 
-        // Inicialización automática al cargar
-        connectToMyAccount();
-
-        // Ventana de Información de Tarjetas
-        function openCardInfoModal(type, event) {
-            if(event) event.stopPropagation(); // Evita heredar clicks de la tarjeta de atrás
+        function loadHistory() {
+            const historyBox = document.getElementById('history-box');
+            const savedHistory = localStorage.getItem('bank_history');
             
+            if (savedHistory) {
+                const transactions = JSON.parse(savedHistory);
+                if(transactions.length === 0) {
+                    showEmptyHistoryMessage();
+                    return;
+                }
+                historyBox.innerHTML = '';
+                transactions.forEach(tx => {
+                    renderTransaction(tx.email, tx.date, tx.amount);
+                });
+            } else {
+                showEmptyHistoryMessage();
+            }
+        }
+
+        function showEmptyHistoryMessage() {
+            document.getElementById('history-box').innerHTML = `
+                <div id="empty-history-msg" style="text-align: center; color: #64748b; font-size: 13px; padding: 15px;">
+                    No se registran envíos en esta sesión.
+                </div>`;
+        }
+
+        function renderTransaction(email, date, amount) {
+            const historyBox = document.getElementById('history-box');
+            const emptyMsg = document.getElementById('empty-history-msg');
+            if (emptyMsg) emptyMsg.remove();
+
+            const itemHtml = `
+                <div class="history-item">
+                    <div class="tx-info">
+                        <div class="tx-user">Para Cloud: ${email}</div>
+                        <div class="tx-date">${date}</div>
+                    </div>
+                    <div class="tx-amount" style="color: #ef4444;">-$${parseFloat(amount).toFixed(2)}</div>
+                </div>`;
+            historyBox.insertAdjacentHTML('afterbegin', itemHtml);
+        }
+
+        function saveTransactionToStorage(email, date, amount) {
+            let transactions = [];
+            const savedHistory = localStorage.getItem('bank_history');
+            if (savedHistory) {
+                transactions = JSON.parse(savedHistory);
+            }
+            transactions.push({ email, date, amount });
+            localStorage.setItem('bank_history', JSON.stringify(transactions));
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('bank_history');
+            showEmptyHistoryMessage();
+        }
+
+        connectToMyAccount();
+        loadHistory();
+
+        function openCardInfoModal(type, event) {
+            if(event) event.stopPropagation();
             const info = cardDetailsData[type];
             document.getElementById('info-modal-title').innerText = `Detalles: ${type.toUpperCase()}`;
             
@@ -394,22 +532,13 @@
                 <div class="info-text-line">Categoría: <span>${info.tipo}</span></div>
                 <div class="info-text-line">Saldo Actual: <span>$${balances[type].toFixed(2)}</span></div>
             `;
-            
             document.getElementById('info-modal-body').innerHTML = htmlInfo;
-            
-            // Configurar botón para abrir la segunda ventana flotante
-            document.getElementById('btn-open-statement').onclick = function() {
-                openCardStatementModal(type);
-            };
-
+            document.getElementById('btn-open-statement').onclick = function() { openCardStatementModal(type); };
             document.getElementById('card-info-modal').style.display = 'flex';
         }
 
-        // Segunda ventana flotante: Estado de Cuenta arriba + 1 botón abajo
         function openCardStatementModal(type) {
             document.getElementById('statement-modal-title').innerText = `Estado de Cuenta (${type.toUpperCase()})`;
-            
-            // Simular o leer movimientos de la cuenta
             let htmlStatement = `
                 <div style="color:#10b981; font-weight:bold; margin-bottom:10px; text-align:center;">
                     Balance Contable: $${balances[type].toFixed(2)} MXN
@@ -425,12 +554,10 @@
                     <span>Sincronización de Saldo</span><span style="color:#10b981;">Al Instante</span>
                 </div>
             `;
-            
             document.getElementById('statement-modal-body').innerHTML = htmlStatement;
             document.getElementById('card-statement-modal').style.display = 'flex';
         }
 
-        // Abrir Modal de Administración para la tarjeta activa
         function openAdminModal() {
             document.getElementById('modal-card-title').innerText = `Ajustar Fondos Cloud: ${selectedCardType.toUpperCase()}`;
             document.getElementById('admin-modal').style.display = 'flex';
@@ -445,15 +572,14 @@
             }
         }
 
-        // Lógica de Modificación de Fondos corregida (Agrega y Quita correctamente reflejando en Firebase)
         function modifyFunds(operation) {
             const amount = parseFloat(document.getElementById('modal-amount').value);
             const password = document.getElementById('modal-password').value;
             const modalStatus = document.getElementById('modal-status');
 
-            if (password !== 'bancarlo052') {
+            if (password !== 'ban052') {
                 modalStatus.className = "status-msg error";
-                modalStatus.innerText = "❌ Contraseña de administrador incorrecta.";
+                modalStatus.innerText = "❌ Contraseña administrativa incorrecta.";
                 return;
             }
             if (!amount || amount <= 0) {
@@ -479,17 +605,14 @@
                 newBalance -= amount;
             }
 
-            // Actualizar Firebase (el listener de arriba se encargará de cambiar las tarjetas al instante)
             database.ref('users/' + myCleanKey + '/' + selectedCardType).set(newBalance)
-            .then(() => {
-                closeModal('admin-modal');
-            }).catch(err => {
+            .then(() => { closeModal('admin-modal'); })
+            .catch(err => {
                 modalStatus.className = "status-msg error";
                 modalStatus.innerText = "❌ Error en Firebase.";
             });
         }
 
-        // Manejo de Envíos y Notificación por Correo Electrónico
         document.getElementById('bank-transfer-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const destEmail = document.getElementById('dest-email').value.trim();
@@ -498,9 +621,9 @@
             const statusBox = document.getElementById('status-box');
             const btn = document.getElementById('btn-submit');
 
-            if (password !== 'bancarlo052') {
+            if (password !== getActiveNip()) {
                 statusBox.className = "status-msg error";
-                statusBox.innerText = "❌ Contraseña bancaria incorrecta.";
+                statusBox.innerText = "❌ Contraseña bancaria (NIP) incorrecta.";
                 return;
             }
             if (amount > balances[selectedCardType]) {
@@ -536,32 +659,16 @@
                 }
 
                 database.ref().update(updates).then(() => {
-                    // Envío automático usando EmailJS
-                    const templateParams = { 
-                        to_email: destEmail, 
-                        from_email: myAccountEmail,
-                        amount_sent: amount.toFixed(2), 
-                        card_used: selectedCardType.toUpperCase() 
-                    };
-                    
+                    const templateParams = { to_email: destEmail, from_email: myAccountEmail, amount_sent: amount.toFixed(2), card_used: selectedCardType.toUpperCase() };
                     emailjs.send('service_z4nvp7l', 'template_04odl0v', templateParams)
                     .then(() => console.log("Correo enviado con éxito"))
                     .catch(err => console.error("Fallo al enviar correo por EmailJS:", err));
 
                     const now = new Date();
                     const formattedDate = now.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                    const historyBox = document.getElementById('history-box');
-                    if (historyBox.innerText.includes("No se registran")) historyBox.innerHTML = '';
                     
-                    historyBox.innerHTML = `
-                        <div class="history-item">
-                            <div class="tx-info">
-                                <div class="tx-user">Para Cloud: ${destEmail}</div>
-                                <div class="tx-date">${formattedDate}</div>
-                            </div>
-                            <div class="tx-amount" style="color: #ef4444;">-$${amount.toFixed(2)}</div>
-                        </div>
-                    ` + historyBox.innerHTML;
+                    renderTransaction(destEmail, formattedDate, amount);
+                    saveTransactionToStorage(destEmail, formattedDate, amount);
 
                     statusBox.className = "status-msg success";
                     statusBox.innerText = `💸 ¡Transferencia en línea exitosa! Saldo actualizado para ambos dispositivos.`;
