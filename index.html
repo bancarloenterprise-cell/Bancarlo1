@@ -111,6 +111,7 @@
             color: white; 
         }
         .form-input:focus { border-color: #10b981; outline: none; }
+        .form-input[readonly] { background-color: #1a1a1a; color: #94a3b8; cursor: not-allowed; }
         .btn-bank { 
             width: 100%; 
             background-color: #10b981; 
@@ -161,7 +162,7 @@
     <div class="form-container" style="margin-bottom: 20px;">
         <div class="form-group">
             <label for="my-email">Tu Correo Electrónico (Mi Cuenta)</label>
-            <input type="email" id="my-email" class="form-input" placeholder="ejemplo@gmail.com" value="luisalex58@gmail.com" oninput="connectToMyAccount()">
+            <input type="email" id="my-email" class="form-input" placeholder="ejemplo@gmail.com" value="luisalex58@gmail.com" readonly>
         </div>
     </div>
 
