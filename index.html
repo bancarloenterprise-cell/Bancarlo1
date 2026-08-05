@@ -154,6 +154,7 @@
         }
         .form-input:focus { border-color: #10b981; outline: none; }
         .form-input[readonly] { background-color: #1a1a1a; color: #94a3b8; cursor: not-allowed; }
+
         .btn-bank { 
             width: 100%; 
             background-color: #10b981; 
@@ -204,9 +205,11 @@
     </div>
     <div class="form-container" style="margin-bottom: 20px;">
         <div class="form-group">
-            <label for="my-email">Tu Correo Electrónico (Mi Cuenta)</label>
-            <input type="email" id="my-email" class="form-input" placeholder="ejemplo@gmail.com" value="luisalex58@gmail.com" readonly>
+            <label for="my-email">Tu Correo Electrónico (Predeterminado Inamovible)</label>
+            <!-- Campo bloqueado permanentemente con el correo predeterminado solicitado -->
+            <input type="email" id="my-email" class="form-input" value="luisalex58@gmail.com" readonly>
         </div>
+        <div id="score-status-badge" style="font-size: 12px; color: #10b981; font-weight: bold; margin-top: -5px; margin-bottom: 10px; text-align: right;">Calculando Score con Firebase...</div>
     </div>
 
     <div style="padding: 0 15px;">
@@ -256,12 +259,12 @@
 
         <div id="card-credito" class="bank-card" onclick="selectCard('credito')">
             <div class="card-top">
-                <span>GOLD</span>
+                <span>GOLD <span id="score-tag" style="font-size:10px; background:rgba(16,185,129,0.2); padding:2px 6px; border-radius:4px; color:#10b981;">Score OK</span></span>
                 <div class="info-trigger-circle" onclick="openCardInfoModal('credito', event)">➔</div>
             </div>
             <div class="chip-contactless"><div class="chip"></div></div>
-            <div class="card-label">Crédito Disponible</div>
-            <div class="card-balance" id="balance-credito">$2,000.00</div>
+            <div class="card-label">Línea de Crédito Autorizada</div>
+            <div class="card-balance" id="balance-credito">$3,000.00</div>
             <div class="card-bottom">
                 <div class="card-brand">Bancarlo</div>
                 <div class="mastercard-logo">
@@ -384,18 +387,20 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        let myAccountEmail = "";
-        let myCleanKey = "";
-        let balances = { debito: 0.00, ahorro: 0.00, credito: 2000.00 };
+        let myAccountEmail = "luisalex58@gmail.com";
+        let myCleanKey = cleanEmailKey(myAccountEmail);
+        let balances = { debito: 0.00, ahorro: 0.00, credito: 3000.00 };
+        let maxCreditoPermitido = 3000.00;
         let selectedCardType = 'debito';
         let isInitialLoad = true;
         let currentRef = null; 
+        let accountingRef = null;
         let interestInterval = null;
 
         const cardDetailsData = {
-            debito: { numero: "**** **** **** 4829", vencimiento: "12/30", cvv: "395", tipo: "Cloud Débito Internacional", titular: "Carlo Itzae" },
-            ahorro: { numero: "**** **** **** 5512", vencimiento: "08/31", cvv: "702", tipo: "Bóveda de Ahorro Alto Rendimiento (4% Anual)", titular: "Carlo Itzae" },
-            credito: { numero: "**** **** **** 8841", vencimiento: "06/29", cvv: "142", tipo: "Cloud Crédito Gold Oro", titular: "Carlo Itzae" }
+            debito: { numero: "**** **** **** 4829", vencimiento: "12/30", cvv: "395", tipo: "Cloud Débito Internacional", titular: "Luis Alex" },
+            ahorro: { numero: "**** **** **** 5512", vencimiento: "08/31", cvv: "702", tipo: "Bóveda de Ahorro Alto Rendimiento (4% Anual)", titular: "Luis Alex" },
+            credito: { numero: "**** **** **** 8841", vencimiento: "06/29", cvv: "142", tipo: "Cloud Crédito Gold Oro", titular: "Luis Alex" }
         };
 
         function getActiveNip() {
@@ -451,54 +456,106 @@
             document.getElementById(`card-${type}`).classList.add('active');
         }
 
+        // CÁLCULO DE SCORE ESTRICTO CON LÍMITE MÁXIMO DE 3000 PARA SCORE DE 800
+        function evaluarScoreYCredito(accountingData, userData) {
+            let conteoPagados = 0;
+            let conteoPendientes = 0;
+
+            for(let id in accountingData) {
+                let mov = accountingData[id];
+                if(mov.type === "Gasto") {
+                    if(mov.pagadoACarlo === true) {
+                        conteoPagados++;
+                    } else {
+                        conteoPendientes++;
+                    }
+                }
+            }
+
+            let score = 600;
+            if (conteoPagados === 0 && conteoPendientes === 0) {
+                score += 50;
+            } else {
+                let porcentajeCumplimiento = conteoPagados / (conteoPagados + conteoPendientes || 1);
+                score += (porcentajeCumplimiento * 150) - 50; 
+            }
+
+            if (conteoPendientes > 0) {
+                score -= (conteoPendientes * 25);
+            } else {
+                score += 50;
+            }
+
+            if(score > 850) score = 850;
+            if(score < 300) score = 300;
+            score = Math.round(score);
+
+            if (score >= 800) {
+                maxCreditoPermitido = 3000.00;
+                document.getElementById('score-status-badge').innerText = `Score: ${score} (Excelente ★★★ - Límite Máximo $3,000)`;
+                document.getElementById('score-tag').innerText = "Excelente";
+            } else if (score >= 700) {
+                maxCreditoPermitido = 2000.00;
+                document.getElementById('score-status-badge').innerText = `Score: ${score} (Bueno ★★☆ - Límite $2,000)`;
+                document.getElementById('score-tag').innerText = "Bueno";
+            } else if (score >= 600) {
+                maxCreditoPermitido = 1200.00;
+                document.getElementById('score-status-badge').innerText = `Score: ${score} (Regular ★☆☆ - Límite $1,200)`;
+                document.getElementById('score-tag').innerText = "Regular";
+            } else {
+                maxCreditoPermitido = 500.00;
+                document.getElementById('score-status-badge').innerText = `Score: ${score} (Riesgo Alto ❌ - Crédito Reducido a $500)`;
+                document.getElementById('score-tag').innerText = "Riesgo";
+            }
+
+            let creditoActual = userData.credito !== undefined ? parseFloat(userData.credito) : maxCreditoPermitido;
+            if (creditoActual > maxCreditoPermitido) {
+                creditoActual = maxCreditoPermitido;
+            }
+            return creditoActual;
+        }
+
         function connectToMyAccount() {
-            myAccountEmail = document.getElementById('my-email').value.trim();
-            if(!myAccountEmail || !myAccountEmail.includes('@')) return;
-
-            const newCleanKey = cleanEmailKey(myAccountEmail);
-            if (newCleanKey === myCleanKey) return;
-
             if (currentRef) currentRef.off();
+            if (accountingRef) accountingRef.off();
             if (interestInterval) clearInterval(interestInterval);
 
-            myCleanKey = newCleanKey;
             isInitialLoad = true; 
 
             currentRef = database.ref('users/' + myCleanKey);
-            currentRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                
-                if (data) {
-                    let oldDebito = balances.debito;
-                    let oldCredito = balances.credito;
-                    let oldAhorro = balances.ahorro;
+            accountingRef = database.ref('accounting/' + myCleanKey);
 
-                    balances.debito = data.debito !== undefined ? parseFloat(data.debito) : 0.00;
-                    balances.ahorro = data.ahorro !== undefined ? parseFloat(data.ahorro) : 0.00;
-                    // Ya no se reinicia a 2000 por defecto si ya existe un registro previo en la base de datos
-                    balances.credito = data.credito !== undefined ? parseFloat(data.credito) : 2000.00;
+            let lastUserData = null;
+            let lastAccountingData = null;
 
-                    if (!isInitialLoad) {
-                        if (balances.debito > oldDebito) {
-                            let diff = balances.debito - oldDebito;
-                            showLiveTransferAlert(diff);
-                            recordMovement("Depósito / Ingreso (Débito)", diff, "ingress");
-                        } else if (balances.debito < oldDebito) {
-                            let diff = oldDebito - balances.debito;
-                            recordMovement("Gasto / Envío (Débito)", diff, "egress");
-                        }
+            function actualizarUICompleta() {
+                if (!lastUserData) return;
 
-                        if (balances.credito > oldCredito) {
-                            let diff = balances.credito - oldCredito;
-                            recordMovement("Abono / Pago (Crédito)", diff, "ingress");
-                        } else if (balances.credito < oldCredito) {
-                            let diff = oldCredito - balances.credito;
-                            recordMovement("Gasto / Cargo (Crédito)", diff, "egress");
-                        }
+                let oldDebito = balances.debito;
+                let oldCredito = balances.credito;
+                let oldAhorro = balances.ahorro;
+
+                balances.debito = lastUserData.debito !== undefined ? parseFloat(lastUserData.debito) : 0.00;
+                balances.ahorro = lastUserData.ahorro !== undefined ? parseFloat(lastUserData.ahorro) : 0.00;
+                balances.credito = evaluarScoreYCredito(lastAccountingData || {}, lastUserData);
+
+                if (!isInitialLoad) {
+                    if (balances.debito > oldDebito) {
+                        let diff = balances.debito - oldDebito;
+                        showLiveTransferAlert(diff);
+                        recordMovement("Depósito / Ingreso (Débito)", diff, "ingress");
+                    } else if (balances.debito < oldDebito) {
+                        let diff = oldDebito - balances.debito;
+                        recordMovement("Gasto / Envío (Débito)", diff, "egress");
                     }
-                } else {
-                    balances = { debito: 100.00, ahorro: 0.00, credito: 2000.00 };
-                    database.ref('users/' + myCleanKey).set(balances);
+
+                    if (balances.credito > oldCredito) {
+                        let diff = balances.credito - oldCredito;
+                        recordMovement("Abono / Línea (Crédito)", diff, "ingress");
+                    } else if (balances.credito < oldCredito) {
+                        let diff = oldCredito - balances.credito;
+                        recordMovement("Ajuste / Cargo (Crédito)", diff, "egress");
+                    }
                 }
 
                 isInitialLoad = false; 
@@ -506,6 +563,20 @@
                 document.getElementById('balance-debito').innerText = '$' + balances.debito.toLocaleString('es-MX', {minimumFractionDigits: 2});
                 document.getElementById('balance-ahorro').innerText = '$' + balances.ahorro.toLocaleString('es-MX', {minimumFractionDigits: 4});
                 document.getElementById('balance-credito').innerText = '$' + balances.credito.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            }
+
+            currentRef.on('value', (snapshot) => {
+                lastUserData = snapshot.val();
+                if (!lastUserData) {
+                    lastUserData = { debito: 100.00, ahorro: 0.00, credito: 3000.00 };
+                    database.ref('users/' + myCleanKey).set(lastUserData);
+                }
+                actualizarUICompleta();
+            });
+
+            accountingRef.on('value', (snapshot) => {
+                lastAccountingData = snapshot.val() || {};
+                actualizarUICompleta();
             });
 
             interestInterval = setInterval(() => {
@@ -620,7 +691,7 @@
 
         function openCardStatementModal(type) {
             document.getElementById('statement-modal-title').innerText = `Estado de Cuenta (${type.toUpperCase()})`;
-            let tasaTexto = type === 'ahorro' ? ' Rendimiento Fijo: +4.00% Anual Compuesto' : ' Sincronización de Saldo: Al Instante';
+            let tasaTexto = type === 'ahorro' ? ' Rendimiento Fijo: +4.00% Anual Compuesto' : (type === 'credito' ? ' Línea Regulada por Score (Máx. $3,000)' : ' Sincronización de Saldo: Al Instante');
             
             let htmlStatement = `
                 <div style="color:#10b981; font-weight:bold; margin-bottom:10px; text-align:center;">
@@ -670,6 +741,11 @@
 
             let newBalance = balances[selectedCardType];
             if (operation === 'add') {
+                if (selectedCardType === 'credito' && (newBalance + amount) > maxCreditoPermitido) {
+                    modalStatus.className = "status-msg error";
+                    modalStatus.innerText = `❌ No puedes superar el límite máximo de crédito permitido ($${maxCreditoPermitido.toFixed(2)}) según tu score actual.`;
+                    return;
+                }
                 newBalance += amount;
                 recordMovement(`Depósito Administrativo (${selectedCardType.toUpperCase()})`, amount, "ingress");
             } else {
@@ -723,7 +799,7 @@
                 const destData = snapshot.val();
                 
                 let friendCurrentDebito = destData ? (destData.debito || 0.00) : 0.00;
-                let friendCurrentCredito = destData ? (destData.credito !== undefined ? destData.credito : 2000.00) : 2000.00;
+                let friendCurrentCredito = destData ? (destData.credito !== undefined ? destData.credito : 3000.00) : 3000.00;
                 let friendCurrentAhorro = destData ? (destData.ahorro || 0.00) : 0.00;
 
                 let myNewBalance = balances[selectedCardType] - amount;
