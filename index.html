@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bancarlo Cloud Móvil v5.3</title>
+    <title>Bancarlo Cloud Móvil v5.4</title>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -126,7 +126,6 @@
         .chip-contactless { margin-top: 15px; display: flex; flex-direction: column; gap: 4px; }
         .chip { width: 38px; height: 28px; background: linear-gradient(135deg, #e2cb99 0%, #b89855 100%); border-radius: 6px; }
         .bank-card.saving-card .chip { background: linear-gradient(135deg, #a7f3d0 0%, #34d399 100%); }
-        .contactless { font-size: 16px; margin-left: 4px; }
         .card-label { font-size: 11px; text-transform: uppercase; color: #888888; letter-spacing: 1px; margin-top: 20px; }
         .bank-card.saving-card .card-label { color: #a7f3d0; opacity: 0.8; }
         .card-balance { font-size: 28px; font-weight: bold; margin-top: 2px; color: #ffffff; }
@@ -179,7 +178,7 @@
         .tx-info { display: flex; flex-direction: column; gap: 4px; }
         .tx-user { font-size: 14px; font-weight: bold; color: #ffffff; }
         .tx-date { font-size: 11px; color: #64748b; }
-        .tx-amount { font-size: 15px; font-weight: bold; color: #10b981; }
+        .tx-amount { font-size: 15px; font-weight: bold; }
         
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; padding: 20px; box-sizing: border-box;
@@ -261,7 +260,7 @@
                 <div class="info-trigger-circle" onclick="openCardInfoModal('credito', event)">➔</div>
             </div>
             <div class="chip-contactless"><div class="chip"></div></div>
-            <div class="card-label">Crédito Disponible (Límite: $2,000)</div>
+            <div class="card-label">Crédito Disponible</div>
             <div class="card-balance" id="balance-credito">$2,000.00</div>
             <div class="card-bottom">
                 <div class="card-brand">Bancarlo</div>
@@ -300,7 +299,7 @@
     </div>
 
     <div class="section-header">
-        <h2 class="section-title">Historial de Envíos Guardados</h2>
+        <h2 class="section-title">Historial Global de Movimientos</h2>
         <button type="button" class="btn-reset-history" onclick="clearHistory()">Reiniciar Historial</button>
     </div>
     <div class="history-container" id="history-box"></div>
@@ -391,7 +390,7 @@
         let selectedCardType = 'debito';
         let isInitialLoad = true;
         let currentRef = null; 
-        let interestInterval = null; 
+        let interestInterval = null;
 
         const cardDetailsData = {
             debito: { numero: "**** **** **** 4829", vencimiento: "12/30", cvv: "395", tipo: "Cloud Débito Internacional", titular: "Carlo Itzae" },
@@ -439,9 +438,7 @@
             statusBox.className = "status-msg success";
             statusBox.innerText = "✅ NIP guardado y actualizado correctamente.";
             
-            setTimeout(() => {
-                closeModal('nip-change-modal');
-            }, 1500);
+            setTimeout(() => { closeModal('nip-change-modal'); }, 1500);
         }
 
         function cleanEmailKey(email) {
@@ -473,13 +470,31 @@
                 
                 if (data) {
                     let oldDebito = balances.debito;
+                    let oldCredito = balances.credito;
+                    let oldAhorro = balances.ahorro;
+
                     balances.debito = data.debito !== undefined ? parseFloat(data.debito) : 0.00;
                     balances.ahorro = data.ahorro !== undefined ? parseFloat(data.ahorro) : 0.00;
+                    // Ya no se reinicia a 2000 por defecto si ya existe un registro previo en la base de datos
                     balances.credito = data.credito !== undefined ? parseFloat(data.credito) : 2000.00;
 
-                    if (!isInitialLoad && balances.debito > oldDebito) {
-                        let transferReceived = balances.debito - oldDebito;
-                        showLiveTransferAlert(transferReceived);
+                    if (!isInitialLoad) {
+                        if (balances.debito > oldDebito) {
+                            let diff = balances.debito - oldDebito;
+                            showLiveTransferAlert(diff);
+                            recordMovement("Depósito / Ingreso (Débito)", diff, "ingress");
+                        } else if (balances.debito < oldDebito) {
+                            let diff = oldDebito - balances.debito;
+                            recordMovement("Gasto / Envío (Débito)", diff, "egress");
+                        }
+
+                        if (balances.credito > oldCredito) {
+                            let diff = balances.credito - oldCredito;
+                            recordMovement("Abono / Pago (Crédito)", diff, "ingress");
+                        } else if (balances.credito < oldCredito) {
+                            let diff = oldCredito - balances.credito;
+                            recordMovement("Gasto / Cargo (Crédito)", diff, "egress");
+                        }
                     }
                 } else {
                     balances = { debito: 100.00, ahorro: 0.00, credito: 2000.00 };
@@ -491,21 +506,6 @@
                 document.getElementById('balance-debito').innerText = '$' + balances.debito.toLocaleString('es-MX', {minimumFractionDigits: 2});
                 document.getElementById('balance-ahorro').innerText = '$' + balances.ahorro.toLocaleString('es-MX', {minimumFractionDigits: 4});
                 document.getElementById('balance-credito').innerText = '$' + balances.credito.toLocaleString('es-MX', {minimumFractionDigits: 2});
-
-                // Lógica de reinicio de crédito (cada 14 días)
-                const lastReset = localStorage.getItem('last_credit_reset');
-                const now = Date.now();
-                const fourteenDays = 14 * 24 * 60 * 60 * 1000;
-
-                if (!lastReset || (now - parseInt(lastReset)) > fourteenDays) {
-                    if (balances.credito < 2000.00) {
-                        balances.credito = 2000.00;
-                        database.ref('users/' + myCleanKey + '/credito').set(2000.00);
-                        localStorage.setItem('last_credit_reset', now.toString());
-                    } else if (!lastReset) {
-                        localStorage.setItem('last_credit_reset', now.toString());
-                    }
-                }
             });
 
             interestInterval = setInterval(() => {
@@ -513,9 +513,10 @@
                     const annualRate = 0.04;
                     const secondsInYear = 365 * 24 * 60 * 60;
                     const interestPerSecond = balances.ahorro * (annualRate / secondsInYear);
-                    let intermediateBalance = balances.ahorro + interestPerSecond;
-                    balances.ahorro = intermediateBalance;
+                    
+                    balances.ahorro += interestPerSecond;
                     document.getElementById('balance-ahorro').innerText = '$' + balances.ahorro.toLocaleString('es-MX', {minimumFractionDigits: 4});
+                    
                     if (Math.floor(Date.now() / 1000) % 5 === 0) {
                         database.ref('users/' + myCleanKey + '/ahorro').set(parseFloat(balances.ahorro.toFixed(6)));
                     }
@@ -532,12 +533,18 @@
 
         function loadHistory() {
             const historyBox = document.getElementById('history-box');
-            const savedHistory = localStorage.getItem('bank_history');
+            const savedHistory = localStorage.getItem('bank_history_global');
+            
             if (savedHistory) {
-                const transactions = JSON.parse(savedHistory);
-                if(transactions.length === 0) { showEmptyHistoryMessage(); return; }
+                const movements = JSON.parse(savedHistory);
+                if(movements.length === 0) {
+                    showEmptyHistoryMessage();
+                    return;
+                }
                 historyBox.innerHTML = '';
-                transactions.forEach(tx => { renderTransaction(tx.email, tx.date, tx.amount); });
+                movements.forEach(m => {
+                    renderMovementItem(m.title, m.date, m.amount, m.type);
+                });
             } else {
                 showEmptyHistoryMessage();
             }
@@ -546,35 +553,47 @@
         function showEmptyHistoryMessage() {
             document.getElementById('history-box').innerHTML = `
                 <div id="empty-history-msg" style="text-align: center; color: #64748b; font-size: 13px; padding: 15px;">
-                    No se registran envíos en esta sesión.
+                    No se registran movimientos en esta sesión.
                 </div>`;
         }
 
-        function renderTransaction(email, date, amount) {
+        function renderMovementItem(title, date, amount, type) {
             const historyBox = document.getElementById('history-box');
             const emptyMsg = document.getElementById('empty-history-msg');
             if (emptyMsg) emptyMsg.remove();
+
+            const isIngress = type === 'ingress';
+            const colorStyle = isIngress ? '#10b981' : '#ef4444';
+            const signPrefix = isIngress ? '+' : '-';
+
             const itemHtml = `
                 <div class="history-item">
                     <div class="tx-info">
-                        <div class="tx-user">Para Cloud: ${email}</div>
+                        <div class="tx-user">${title}</div>
                         <div class="tx-date">${date}</div>
                     </div>
-                    <div class="tx-amount" style="color: #ef4444;">-$${parseFloat(amount).toFixed(2)}</div>
+                    <div class="tx-amount" style="color: ${colorStyle};">${signPrefix}$${parseFloat(amount).toFixed(2)}</div>
                 </div>`;
             historyBox.insertAdjacentHTML('afterbegin', itemHtml);
         }
 
-        function saveTransactionToStorage(email, date, amount) {
-            let transactions = [];
-            const savedHistory = localStorage.getItem('bank_history');
-            if (savedHistory) { transactions = JSON.parse(savedHistory); }
-            transactions.push({ email, date, amount });
-            localStorage.setItem('bank_history', JSON.stringify(transactions));
+        function recordMovement(title, amount, type) {
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            
+            let movements = [];
+            const savedHistory = localStorage.getItem('bank_history_global');
+            if (savedHistory) {
+                movements = JSON.parse(savedHistory);
+            }
+            movements.push({ title, date: formattedDate, amount, type });
+            localStorage.setItem('bank_history_global', JSON.stringify(movements));
+
+            renderMovementItem(title, formattedDate, amount, type);
         }
 
         function clearHistory() {
-            localStorage.removeItem('bank_history');
+            localStorage.removeItem('bank_history_global');
             showEmptyHistoryMessage();
         }
 
@@ -585,6 +604,7 @@
             if(event) event.stopPropagation();
             const info = cardDetailsData[type];
             document.getElementById('info-modal-title').innerText = `Detalles: ${type.toUpperCase()}`;
+            
             let htmlInfo = `
                 <div class="info-text-line">Titular: <span>${info.titular}</span></div>
                 <div class="info-text-line">Número: <span>${info.numero}</span></div>
@@ -601,6 +621,7 @@
         function openCardStatementModal(type) {
             document.getElementById('statement-modal-title').innerText = `Estado de Cuenta (${type.toUpperCase()})`;
             let tasaTexto = type === 'ahorro' ? ' Rendimiento Fijo: +4.00% Anual Compuesto' : ' Sincronización de Saldo: Al Instante';
+            
             let htmlStatement = `
                 <div style="color:#10b981; font-weight:bold; margin-bottom:10px; text-align:center;">
                     Balance Contable: $${balances[type].toFixed(2)} MXN
@@ -608,9 +629,6 @@
                 <hr style="border-color:#222; margin:10px 0;">
                 <div style="display:flex; justify-content:space-between; padding:5px 0; color:#888;">
                     <span>Concepto</span><span>Monto</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:5px 0;">
-                    <span>Apertura de Cuenta Cloud</span><span style="color:#10b981;">+ $${type === 'credito' ? '2000.00' : (type === 'debito' ? '100.00' : '0.00')}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; padding:5px 0;">
                     <span>Regulación del Activo</span><span style="color:#34d399;">${tasaTexto}</span>
@@ -652,12 +670,8 @@
 
             let newBalance = balances[selectedCardType];
             if (operation === 'add') {
-                if (selectedCardType === 'credito' && (balances.credito + amount) > 2000.00) {
-                    modalStatus.className = "status-msg error";
-                    modalStatus.innerText = "❌ No puedes exceder el límite de crédito de $2,000.00.";
-                    return;
-                }
                 newBalance += amount;
+                recordMovement(`Depósito Administrativo (${selectedCardType.toUpperCase()})`, amount, "ingress");
             } else {
                 if (amount > balances[selectedCardType]) {
                     modalStatus.className = "status-msg error";
@@ -665,6 +679,7 @@
                     return;
                 }
                 newBalance -= amount;
+                recordMovement(`Retiro Administrativo (${selectedCardType.toUpperCase()})`, amount, "egress");
             }
 
             database.ref('users/' + myCleanKey + '/' + selectedCardType).set(parseFloat(newBalance.toFixed(6)))
@@ -706,11 +721,14 @@
 
             database.ref('users/' + destCleanKey).once('value').then((snapshot) => {
                 const destData = snapshot.val();
+                
                 let friendCurrentDebito = destData ? (destData.debito || 0.00) : 0.00;
                 let friendCurrentCredito = destData ? (destData.credito !== undefined ? destData.credito : 2000.00) : 2000.00;
                 let friendCurrentAhorro = destData ? (destData.ahorro || 0.00) : 0.00;
+
                 let myNewBalance = balances[selectedCardType] - amount;
                 let friendNewDebito = friendCurrentDebito + amount;
+
                 let updates = {};
                 updates['/users/' + myCleanKey + '/' + selectedCardType] = parseFloat(myNewBalance.toFixed(6));
                 updates['/users/' + destCleanKey + '/debito'] = parseFloat(friendNewDebito.toFixed(6));
@@ -721,19 +739,21 @@
 
                 database.ref().update(updates).then(() => {
                     const templateParams = { to_email: destEmail, from_email: myAccountEmail, amount_sent: amount.toFixed(2), card_used: selectedCardType.toUpperCase() };
-                    emailjs.send('service_z4nvp7l', 'template_04odl0v', templateParams);
-                    const now = new Date();
-                    const formattedDate = now.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                    renderTransaction(destEmail, formattedDate, amount);
-                    saveTransactionToStorage(destEmail, formattedDate, amount);
+                    emailjs.send('service_z4nvp7l', 'template_04odl0v', templateParams)
+                    .then(() => console.log("Correo enviado con éxito"))
+                    .catch(err => console.error("Fallo al enviar correo por EmailJS:", err));
+
+                    recordMovement(`Envío a: ${destEmail} (${selectedCardType.toUpperCase()})`, amount, "egress");
+
                     statusBox.className = "status-msg success";
-                    statusBox.innerText = `💸 ¡Transferencia en línea exitosa!`;
+                    statusBox.innerText = `💸 ¡Transferencia en línea exitosa! Saldo actualizado para ambos dispositivos.`;
+                    
                     document.getElementById('bank-transfer-form').reset();
                     btn.disabled = false;
                     btn.innerText = "Confirmar Envío Seguro Cloud";
                 }).catch((error) => {
                     statusBox.className = "status-msg error";
-                    statusBox.innerText = "❌ Error en base de datos.";
+                    statusBox.innerText = "❌ Error al conectar con la base de datos de Firebase.";
                     btn.disabled = false;
                     btn.innerText = "Confirmar Envío Seguro Cloud";
                 });
